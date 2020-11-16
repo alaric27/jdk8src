@@ -336,6 +336,9 @@ public class HashMap<K,V> extends AbstractMap<K,V>
      */
     static final int hash(Object key) {
         int h;
+        // 这里使用高16位与hashCode取异或，是为了保证离散性
+        // 由于绝大多数情况下length一般都小于2^16即小于65536。
+        // 所以return h & (length-1);结果始终是h的低16位与（length-1）进行&运算,通过这种操作，可以让高16位也参与运算
         return (key == null) ? 0 : (h = key.hashCode()) ^ (h >>> 16);
     }
 
@@ -749,11 +752,19 @@ public class HashMap<K,V> extends AbstractMap<K,V>
     }
 
     /**
+     * 转换为数结构
      * Replaces all linked nodes in bin at index for given hash unless
      * table is too small, in which case resizes instead.
      */
     final void treeifyBin(Node<K,V>[] tab, int hash) {
         int n, index; Node<K,V> e;
+
+        /*
+         * 如果元素数组为空 或者 数组长度小于 树结构化的最小限制
+         * MIN_TREEIFY_CAPACITY 默认值64，对于这个值可以理解为：如果元素数组长度小于这个值，没有必要去进行结构转换
+         * 当一个数组位置上集中了多个键值对，那是因为这些key的hash值和数组长度取模之后结果相同。（并不是因为这些key的hash值相同）
+         * 因为hash值相同的概率不高，所以可以通过扩容的方式，来使得最终这些key的hash值在和新的数组长度取模之后，拆分到多个数组位置上。
+         */
         if (tab == null || (n = tab.length) < MIN_TREEIFY_CAPACITY)
             resize();
         else if ((e = tab[index = (n - 1) & hash]) != null) {

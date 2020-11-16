@@ -396,6 +396,7 @@ public abstract class AbstractQueuedSynchronizer
         static final int PROPAGATE = -3;
 
         /**
+         * 等待状态
          * Status field, taking on only the values:
          *   SIGNAL:     The successor of this node is (or will soon be)
          *               blocked (via park), so the current node must
@@ -432,6 +433,7 @@ public abstract class AbstractQueuedSynchronizer
         volatile int waitStatus;
 
         /**
+         * 前驱节点
          * Link to predecessor node that current node/thread relies on
          * for checking waitStatus. Assigned during enqueuing, and nulled
          * out (for sake of GC) only upon dequeuing.  Also, upon
@@ -445,6 +447,7 @@ public abstract class AbstractQueuedSynchronizer
         volatile Node prev;
 
         /**
+         * 后继节点
          * Link to the successor node that the current node/thread
          * unparks upon release. Assigned during enqueuing, adjusted
          * when bypassing cancelled predecessors, and nulled out (for
@@ -460,12 +463,14 @@ public abstract class AbstractQueuedSynchronizer
         volatile Node next;
 
         /**
+         * 获取同步状态的线程
          * The thread that enqueued this node.  Initialized on
          * construction and nulled out after use.
          */
         volatile Thread thread;
 
         /**
+         * Condition队列中的后继节点。如果当前节点时共享的该值是SHARED常量
          * Link to next node waiting on condition, or the special
          * value SHARED.  Because condition queues are accessed only
          * when holding in exclusive mode, we just need a simple
@@ -597,6 +602,7 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 添加到等待队列的尾部
      * Creates and enqueues node for current thread and given mode.
      *
      * @param mode Node.EXCLUSIVE for exclusive, Node.SHARED for shared
@@ -605,6 +611,7 @@ public abstract class AbstractQueuedSynchronizer
     private Node addWaiter(Node mode) {
         Node node = new Node(Thread.currentThread(), mode);
         // Try the fast path of enq; backup to full enq on failure
+        // 尝试快速添加到尾部，如果失败则调用enq方法
         Node pred = tail;
         if (pred != null) {
             node.prev = pred;
@@ -663,6 +670,7 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 释放共享锁
      * Release action for shared mode -- signals successor and ensures
      * propagation. (Note: For exclusive mode, release just amounts
      * to calling unparkSuccessor of head if it needs signal.)
@@ -686,6 +694,7 @@ public abstract class AbstractQueuedSynchronizer
                 if (ws == Node.SIGNAL) {
                     if (!compareAndSetWaitStatus(h, Node.SIGNAL, 0))
                         continue;            // loop to recheck cases
+                    // 唤醒处于等待中的节点
                     unparkSuccessor(h);
                 }
                 else if (ws == 0 &&
@@ -859,13 +868,16 @@ public abstract class AbstractQueuedSynchronizer
         try {
             boolean interrupted = false;
             for (;;) {
+                // 获取前一个节点
                 final Node p = node.predecessor();
+                // 如果前一个节点是头节点，则尝试获取锁
                 if (p == head && tryAcquire(arg)) {
                     setHead(node);
                     p.next = null; // help GC
                     failed = false;
                     return interrupted;
                 }
+                // 自旋等待
                 if (shouldParkAfterFailedAcquire(p, node) &&
                     parkAndCheckInterrupt())
                     interrupted = true;
@@ -904,6 +916,7 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 带有超时时间的排他锁
      * Acquires in exclusive timed mode.
      *
      * @param arg the acquire argument
@@ -927,6 +940,7 @@ public abstract class AbstractQueuedSynchronizer
                     return true;
                 }
                 nanosTimeout = deadline - System.nanoTime();
+                // 如果等待时间内没有获取到锁，则返回
                 if (nanosTimeout <= 0L)
                     return false;
                 if (shouldParkAfterFailedAcquire(p, node) &&
@@ -946,13 +960,17 @@ public abstract class AbstractQueuedSynchronizer
      * @param arg the acquire argument
      */
     private void doAcquireShared(int arg) {
+        // 添加到等待队列的队尾
         final Node node = addWaiter(Node.SHARED);
         boolean failed = true;
         try {
             boolean interrupted = false;
             for (;;) {
+                // 获取前一个节点
                 final Node p = node.predecessor();
+                // 如果前一个节点时头结点
                 if (p == head) {
+                    // 尝试获取锁
                     int r = tryAcquireShared(arg);
                     if (r >= 0) {
                         setHeadAndPropagate(node, r);
@@ -963,6 +981,7 @@ public abstract class AbstractQueuedSynchronizer
                         return;
                     }
                 }
+                // 自旋
                 if (shouldParkAfterFailedAcquire(p, node) &&
                     parkAndCheckInterrupt())
                     interrupted = true;
@@ -1183,6 +1202,7 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 独占式同步状态获取
      * Acquires in exclusive mode, ignoring interrupts.  Implemented
      * by invoking at least once {@link #tryAcquire},
      * returning on success.  Otherwise the thread is queued, possibly
@@ -1195,6 +1215,7 @@ public abstract class AbstractQueuedSynchronizer
      *        can represent anything you like.
      */
     public final void acquire(int arg) {
+        // 通过tryAcquire判断是否获取到锁，如果没有获取到，则添加到等待队列
         if (!tryAcquire(arg) &&
             acquireQueued(addWaiter(Node.EXCLUSIVE), arg))
             selfInterrupt();
@@ -1248,6 +1269,7 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 独占模式下的锁释放
      * Releases in exclusive mode.  Implemented by unblocking one or
      * more threads if {@link #tryRelease} returns true.
      * This method can be used to implement method {@link Lock#unlock}.
@@ -1258,9 +1280,11 @@ public abstract class AbstractQueuedSynchronizer
      * @return the value returned from {@link #tryRelease}
      */
     public final boolean release(int arg) {
+        // 如果能释放
         if (tryRelease(arg)) {
             Node h = head;
             if (h != null && h.waitStatus != 0)
+                // 唤醒头结点的后继节点
                 unparkSuccessor(h);
             return true;
         }
@@ -1268,6 +1292,7 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 共享模式下获取锁
      * Acquires in shared mode, ignoring interrupts.  Implemented by
      * first invoking at least once {@link #tryAcquireShared},
      * returning on success.  Otherwise the thread is queued, possibly
@@ -1279,6 +1304,7 @@ public abstract class AbstractQueuedSynchronizer
      *        and can represent anything you like.
      */
     public final void acquireShared(int arg) {
+        // 如果tryAcquireShared方法返回小于0，则表示没获取到锁
         if (tryAcquireShared(arg) < 0)
             doAcquireShared(arg);
     }
@@ -1329,6 +1355,7 @@ public abstract class AbstractQueuedSynchronizer
     }
 
     /**
+     * 共享模式下释放锁
      * Releases in shared mode.  Implemented by unblocking one or more
      * threads if {@link #tryReleaseShared} returns true.
      *
@@ -1339,6 +1366,7 @@ public abstract class AbstractQueuedSynchronizer
      */
     public final boolean releaseShared(int arg) {
         if (tryReleaseShared(arg)) {
+            // 释放共享锁
             doReleaseShared();
             return true;
         }
@@ -1680,6 +1708,7 @@ public abstract class AbstractQueuedSynchronizer
          * attempt to set waitStatus fails, wake up to resync (in which
          * case the waitStatus can be transiently and harmlessly wrong).
          */
+        // 添加当前节点到等待队列，等待获取锁
         Node p = enq(node);
         int ws = p.waitStatus;
         if (ws > 0 || !compareAndSetWaitStatus(p, ws, Node.SIGNAL))
@@ -1927,6 +1956,7 @@ public abstract class AbstractQueuedSynchronizer
         // public methods
 
         /**
+         * 通知
          * Moves the longest-waiting thread, if one exists, from the
          * wait queue for this condition to the wait queue for the
          * owning lock.
@@ -2017,6 +2047,7 @@ public abstract class AbstractQueuedSynchronizer
         }
 
         /**
+         * 等待
          * Implements interruptible condition wait.
          * <ol>
          * <li> If current thread is interrupted, throw InterruptedException.
@@ -2032,9 +2063,13 @@ public abstract class AbstractQueuedSynchronizer
         public final void await() throws InterruptedException {
             if (Thread.interrupted())
                 throw new InterruptedException();
+            // 添加等待节点
             Node node = addConditionWaiter();
+            // 释放锁
             int savedState = fullyRelease(node);
             int interruptMode = 0;
+
+            // 自旋等待
             while (!isOnSyncQueue(node)) {
                 LockSupport.park(this);
                 if ((interruptMode = checkInterruptWhileWaiting(node)) != 0)
